@@ -23,13 +23,14 @@ async fn run(rt: Arc<QuickJsRuntimeFacade>, id: String) {
             let res = q_ctx.eval(Script::new(
                 "test.js",
                 r#"
-            xconsole.log("running js...");
-            async function main() {
-                const { abc } = await import('test');
-                abc();
-            }
-            main();
-        "#,
+                        xconsole.log("running js...");
+                        async function main() {
+                            // uncomment the below lines to see the error
+                            const { abc } = await import('test');
+                            abc();
+                        }
+                        main();
+            "#,
             ));
 
             match res {
