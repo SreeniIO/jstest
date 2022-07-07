@@ -104,7 +104,11 @@ async fn main() -> anyhow::Result<()> {
     let rt = make_rt();
 
     multi_context(rt).await?;
+    // Segmentation fault: 11 [after 4520]
+
     // single_context(rt).await?;
+    // thread '<unnamed>' panicked at 'could not create func', .../quickjs_runtime-0.8.0/src/esvalue.rs:365:6
+    // [after 7215]
 
     println!("done");
 
