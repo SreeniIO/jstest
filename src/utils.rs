@@ -1,10 +1,14 @@
 #![deny(warnings)]
 
+use crate::module_loader::ModuleLoader;
 use async_recursion::async_recursion;
 use hirofa_utils::js_utils::JsError;
+use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 use quickjs_runtime::esvalue::{EsValueConvertible, EsValueFacade, ES_UNDEFINED};
+use quickjs_runtime::facades::QuickJsRuntimeFacade;
 use quickjs_runtime::quickjsrealmadapter::QuickJsRealmAdapter;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 static COUNTER: AtomicUsize = AtomicUsize::new(0);
 
@@ -42,7 +46,7 @@ pub fn js_debug(
     args: Vec<EsValueFacade>,
 ) -> Result<EsValueFacade, JsError> {
     if let Some(msg) = get_logger_msg(&args)? {
-        tracing::debug!("{}", msg);
+        println!("{}", msg);
     }
     Ok(ES_UNDEFINED.to_es_value_facade())
 }
@@ -108,4 +112,17 @@ pub async fn get_as_string(val: EsValueFacade, reason: String) -> anyhow::Result
             val, reason
         )))
     }
+}
+
+pub fn make_rt() -> Arc<QuickJsRuntimeFacade> {
+    let rt = Arc::new(
+        QuickJsRuntimeBuilder::new()
+            .memory_limit(1024 * 1024 * 6400)
+            .script_module_loader(Box::new(ModuleLoader::new()))
+            .build(),
+    );
+    rt.set_function(vec!["xconsole"], "log", js_debug)
+        .ok()
+        .expect("set_function failed");
+    rt
 }
