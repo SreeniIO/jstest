@@ -1,0 +1,16 @@
+[package]
+name = "jstest"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.58"
+quickjs_runtime = { version = "0.8.0", features = ["tokio_full"] }
+tokio = { version = "1.19.2", features = ["full"] }
+tracing = { version = "0.2", git = "https://github.com/tokio-rs/tracing.git" }
+tracing-appender = { version = "0.2", git = "https://github.com/tokio-rs/tracing.git" }
+tracing-subscriber = { version = "0.3", git = "https://github.com/tokio-rs/tracing.git", features = ["env-filter"] }
+hirofa_utils = "0.5.2"
+async-recursion = "1.0.0"
