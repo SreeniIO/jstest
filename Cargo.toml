@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.58"
-quickjs_runtime = { version = "0.8.0", features = ["tokio_full"] }
-tokio = { version = "1.19.2", features = ["full"] }
+quickjs_runtime = { version = "0.8.1", features = ["tokio_full"] }
+tokio = { version = "1.20.0", features = ["full"] }
 hirofa_utils = "0.5.2"
 async-recursion = "1.0.0"

@@ -404,9 +404,9 @@ dependencies = [
 
 [[package]]
 name = "quickjs_runtime"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "032a3ee4fae98cc6b78ef6a36e70a54db9f68b3a1a25f00bac41c01545ae4a8a"
+checksum = "08b3914c351c30250a3b9eefd17805e5071e153605b2f9df89547463e4a586a1"
 dependencies = [
  "backtrace",
  "futures",
@@ -603,10 +603,11 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.19.2"
+version = "1.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c51a52ed6686dd62c320f9b89299e9dfb46f730c7a48e635c19f21d116cb1439"
+checksum = "57aec3cfa4c296db7255446efb4928a6be304b431a806216105542a67b6ca82e"
 dependencies = [
+ "autocfg",
  "bytes",
  "libc",
  "memchr",

@@ -2,6 +2,8 @@
 
 use crate::module_loader::ModuleLoader;
 use async_recursion::async_recursion;
+use hirofa_utils::js_utils::facades::values::JsValueFacade;
+use hirofa_utils::js_utils::facades::JsRuntimeFacade;
 use hirofa_utils::js_utils::JsError;
 use quickjs_runtime::builder::QuickJsRuntimeBuilder;
 use quickjs_runtime::esvalue::{EsValueConvertible, EsValueFacade, ES_UNDEFINED};
@@ -52,72 +54,66 @@ pub fn js_debug(
 }
 
 #[async_recursion]
-pub async fn get_as_string(val: EsValueFacade, reason: String) -> anyhow::Result<String, JsError> {
-    if val.is_string() {
-        Ok(val.get_str().to_owned())
-    } else if val.is_promise() {
-        // println!("resolving promise");
-        let fut = val.get_promise_result();
-        let val = fut.await;
-        match val {
-            Ok(r) => {
-                // println!("promise resolved: {:?}", r);
-                get_as_string(r, reason).await
-            }
-            Err(e) => {
-                if e.is_error() {
-                    return Err(e.get_error());
-                }
-                if e.is_object() {
-                    let obj = e.get_object().ok().unwrap();
-                    let stack = obj.get("stack");
-                    let title = obj.get("title");
-                    let message = obj.get("message");
-                    if let (Some(title), Some(message), Some(stack)) = (title, message, stack) {
-                        let title = if title.is_string() {
-                            title.get_str()
-                        } else {
-                            ""
-                        };
-                        let message = if message.is_string() {
-                            message.get_str()
-                        } else {
-                            "Unexpected JS Error! Please check the server log."
-                        };
-                        let stack = if stack.is_string() {
-                            stack.get_str()
-                        } else {
-                            ""
-                        };
-                        return Err(JsError::new(
-                            title.to_owned(),
-                            message.to_owned(),
-                            stack.to_owned(),
-                        ));
-                    };
-                }
-                match e.stringify() {
-                    Ok(s) => Err(JsError::new_string(s)),
-                    Err(e) => Err(e),
-                }
+pub async fn get_as_string(
+    rt: Arc<QuickJsRuntimeFacade>,
+    val: JsValueFacade,
+    reason: String,
+) -> anyhow::Result<String, JsError> {
+    println!("get_as_string={}", val.get_value_type());
+    match val {
+        JsValueFacade::String { val } => Ok(val),
+        JsValueFacade::JsObject { cached_object } => {
+            let week_rti = rt.js_get_runtime_facade_inner();
+            let rti = week_rti.upgrade().unwrap();
+            let obj = cached_object.js_get_object(&*rti).await?;
+            let stack = obj.get("stack");
+            let title = obj.get("title");
+            let message = obj.get("message");
+            if let (Some(title), Some(message), Some(stack)) = (title, message, stack) {
+                let title = if title.is_string() {
+                    title.get_str()
+                } else {
+                    ""
+                };
+                let message = if message.is_string() {
+                    message.get_str()
+                } else {
+                    "Unexpected JS Error! Please check the server log."
+                };
+                let stack = if stack.is_string() {
+                    stack.get_str()
+                } else {
+                    ""
+                };
+                return Err(JsError::new(
+                    title.to_owned(),
+                    message.to_owned(),
+                    stack.to_owned(),
+                ));
+            };
+            todo!()
+        }
+        JsValueFacade::JsPromise { cached_promise } => {
+            let week_rti = rt.js_get_runtime_facade_inner();
+            let rti = week_rti.upgrade().unwrap();
+            let val = cached_promise.js_get_promise_result(&*rti).await?;
+            match val {
+                Ok(val) => get_as_string(rt, val, reason).await,
+                Err(e) => Ok(format!("{:?}", e)),
             }
         }
-    } else if val.is_object() {
-        Ok(format!("{:?}", val.stringify().ok().unwrap()))
-    } else if val.is_undefined() {
-        Ok("".to_owned())
-    } else {
-        Err(JsError::new_string(format!(
+        JsValueFacade::Undefined | JsValueFacade::Null => Ok("".to_owned()),
+        _ => Err(JsError::new_string(format!(
             "Unexpected value found `{:?}` for {}, expected a string.",
             val, reason
-        )))
+        ))),
     }
 }
 
 pub fn make_rt() -> Arc<QuickJsRuntimeFacade> {
     let rt = Arc::new(
         QuickJsRuntimeBuilder::new()
-            .memory_limit(1024 * 1024 * 6400)
+            // .memory_limit(1024 * 1024 * 6400)
             .script_module_loader(Box::new(ModuleLoader::new()))
             .build(),
     );

@@ -4,51 +4,44 @@ pub(crate) mod module_loader;
 mod utils;
 
 use crate::utils::{get_as_string, make_rt, next_id};
-use hirofa_utils::js_utils::{JsError, Script};
-use quickjs_runtime::esvalue::EsValueFacade;
+use hirofa_utils::js_utils::adapters::JsRealmAdapter;
+use hirofa_utils::js_utils::facades::JsRuntimeFacade;
+use hirofa_utils::js_utils::Script;
 use quickjs_runtime::facades::QuickJsRuntimeFacade;
 use std::sync::Arc;
 
 async fn run(rt: Arc<QuickJsRuntimeFacade>, id: String) {
-    match rt
-        .add_rt_task_to_event_loop(move |q_js_rt| {
-            // use the above created context for eval
-            let q_ctx = match q_js_rt.opt_context(&id) {
-                Some(ctx) => ctx,
-                None => {
-                    return Err(JsError::new_string(format!("Missing context {}!", &id)));
-                }
-            };
-
-            let res = q_ctx.eval(Script::new(
-                "test.js",
-                r#"
-                        xconsole.log("running js...");
+    match rt.js_loop_realm_sync(Some(&id), move |_q_js_rt, q_ctx| {
+        let res = q_ctx.eval(Script::new(
+            "test.js",
+            r#"
                         async function main() {
                             // uncomment the below lines to see the error
-                            const { abc } = await import('test');
-                            abc();
+                            const { abc } = await import('abc');
+                            await abc();
+                            xconsole.log("running js...");
+                            return 'test';
                         }
                         main();
             "#,
-            ));
+        ));
 
-            match res {
-                Ok(js) => EsValueFacade::from_jsval(q_ctx, &js),
-                Err(e) => Err(e),
-            }
-        })
-        .await
-    {
+        _q_js_rt.run_pending_jobs_if_any();
+
+        match res {
+            Ok(js) => q_ctx.to_js_value_facade(&js),
+            Err(e) => Err(e),
+        }
+    }) {
         Ok(r) => {
-            let fut = get_as_string(r, "return value".to_owned());
-            match fut.await {
-                Ok(_) => {}
-                Err(e) => eprintln!("{}", e),
+            let fut = get_as_string(rt, r, "return value".to_owned()).await;
+            match fut {
+                Ok(val) => println!("result={}", val),
+                Err(e) => eprintln!("err: {}", e),
             };
         }
         Err(e) => {
-            eprintln!("{}", e);
+            eprintln!("error: {}", e);
         }
     };
 }

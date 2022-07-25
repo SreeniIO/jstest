@@ -21,12 +21,25 @@ impl ScriptModuleLoader<QuickJsRealmAdapter> for ModuleLoader {
         Some(path.to_owned())
     }
 
-    fn load_module(&self, _ctx: &QuickJsRealmAdapter, _absolute_path: &str) -> String {
-        r#"
-        export function abc() {
-            xconsole.log("running module...");
+    fn load_module(&self, _ctx: &QuickJsRealmAdapter, absolute_path: &str) -> String {
+        match absolute_path {
+            "xyz" => {
+                r#"
+export async function xyz() {
+    xconsole.log("running module xyz...");
+}
+            "#
+            }
+            _ => {
+                r#"
+import { xyz } from 'xyz';
+export async function abc() {
+    await xyz();
+    xconsole.log("running module abc...");
+}
+            "#
+            }
         }
-        "#
         .to_owned()
     }
 }
