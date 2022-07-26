@@ -1,7 +1,7 @@
 #![deny(warnings)]
 
+use crate::log;
 use crate::module_loader::ModuleLoader;
-use async_recursion::async_recursion;
 use hirofa_utils::js_utils::facades::values::JsValueFacade;
 use hirofa_utils::js_utils::facades::JsRuntimeFacade;
 use hirofa_utils::js_utils::JsError;
@@ -48,19 +48,38 @@ pub fn js_debug(
     args: Vec<EsValueFacade>,
 ) -> Result<EsValueFacade, JsError> {
     if let Some(msg) = get_logger_msg(&args)? {
-        println!("{}", msg);
+        log!(msg);
     }
     Ok(ES_UNDEFINED.to_es_value_facade())
 }
 
-#[async_recursion]
 pub async fn get_as_string(
     rt: Arc<QuickJsRuntimeFacade>,
-    val: JsValueFacade,
+    mut val: JsValueFacade,
     reason: String,
     id: String,
 ) -> anyhow::Result<String, JsError> {
-    println!("{} get_as_string={}", id, val.get_value_type());
+    log!("{} get_as_string={}", id, val.get_value_type());
+
+    while let JsValueFacade::JsPromise { cached_promise } = val {
+        let rti = rt
+            .js_get_runtime_facade_inner()
+            .upgrade()
+            .expect("invalid state");
+        let prom_res = cached_promise.js_get_promise_result(&*rti).await;
+        match prom_res {
+            Ok(prom_val) => match prom_val {
+                Ok(prom_res_val) => val = prom_res_val,
+                Err(prom_err_val) => {
+                    return Err(JsError::new_string(prom_err_val.stringify()));
+                }
+            },
+            Err(e) => {
+                return Err(e);
+            }
+        }
+    }
+
     match val {
         JsValueFacade::String { val } => Ok(val),
         JsValueFacade::JsObject { cached_object } => {
@@ -93,15 +112,6 @@ pub async fn get_as_string(
                 ));
             };
             todo!()
-        }
-        JsValueFacade::JsPromise { cached_promise } => {
-            let week_rti = rt.js_get_runtime_facade_inner();
-            let rti = week_rti.upgrade().unwrap();
-            let val = cached_promise.js_get_promise_result(&*rti).await?;
-            match val {
-                Ok(val) => get_as_string(rt, val, reason, id).await,
-                Err(e) => Ok(format!("{:?}", e)),
-            }
         }
         JsValueFacade::Undefined | JsValueFacade::Null => Ok("".to_owned()),
         JsValueFacade::JsError { val } => Err(val),

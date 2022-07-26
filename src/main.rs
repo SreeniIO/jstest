@@ -1,7 +1,8 @@
 #![deny(warnings)]
 
+mod macros;
 pub(crate) mod module_loader;
-mod utils;
+pub(crate) mod utils;
 
 use crate::utils::{get_as_string, make_rt, next_id};
 use backtrace::Backtrace;
@@ -33,7 +34,7 @@ async fn run(rt: Arc<QuickJsRuntimeFacade>, id: String) {
             ),
         ));
 
-        _q_js_rt.run_pending_jobs_if_any();
+        // _q_js_rt.run_pending_jobs_if_any();
 
         match res {
             Ok(js) => q_ctx.to_js_value_facade(&js),
@@ -43,7 +44,7 @@ async fn run(rt: Arc<QuickJsRuntimeFacade>, id: String) {
         Ok(r) => {
             let fut = get_as_string(rt, r, "return value".to_owned(), id.clone()).await;
             match fut {
-                Ok(val) => println!("{} result={}", id, val),
+                Ok(val) => log!("{} result={}", id, val),
                 Err(e) => eprintln!("err: {}", e),
             };
         }
@@ -61,7 +62,7 @@ async fn multi_context(rt: Arc<QuickJsRuntimeFacade>, seq: i32) -> anyhow::Resul
         let handle = tokio::task::spawn(async move {
             let id = format!("{}-{}", seq, next_id());
             let id2 = id.clone();
-            println!("{}", id);
+            log!("{}", id);
             // create new context for every execution
             match rt.create_context(&id) {
                 Ok(_) => {}
@@ -98,7 +99,7 @@ async fn single_context(rt: Arc<QuickJsRuntimeFacade>) -> anyhow::Result<()> {
     };
 
     for i in 0..100000 {
-        println!("{}", id);
+        log!("{}", id);
         let id = id.clone();
         run(rt.clone(), id).await;
 
@@ -116,9 +117,10 @@ async fn single_context(rt: Arc<QuickJsRuntimeFacade>) -> anyhow::Result<()> {
 async fn main() -> anyhow::Result<()> {
     panic::set_hook(Box::new(|panic_info| {
         let backtrace = Backtrace::new();
-        println!(
+        log!(
             "thread panic occurred: {}\nbacktrace: {:?}",
-            panic_info, backtrace
+            panic_info,
+            backtrace
         );
         log::error!(
             "thread panic occurred: {}\nbacktrace: {:?}",
@@ -128,6 +130,8 @@ async fn main() -> anyhow::Result<()> {
     }));
 
     simple_logging::log_to_stderr(LevelFilter::Info);
+
+    log!("start");
 
     let rt = make_rt();
     let mut list = vec![];
@@ -152,7 +156,7 @@ async fn main() -> anyhow::Result<()> {
     // thread '<unnamed>' panicked at 'could not create func', .../quickjs_runtime-0.8.0/src/esvalue.rs:365:6
     // [after 7215]
 
-    println!("done");
+    log!("done");
 
     Ok(())
 }
