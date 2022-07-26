@@ -4,10 +4,13 @@ pub(crate) mod module_loader;
 mod utils;
 
 use crate::utils::{get_as_string, make_rt, next_id};
+use backtrace::Backtrace;
 use hirofa_utils::js_utils::adapters::JsRealmAdapter;
 use hirofa_utils::js_utils::facades::JsRuntimeFacade;
 use hirofa_utils::js_utils::Script;
+use log::LevelFilter;
 use quickjs_runtime::facades::QuickJsRuntimeFacade;
+use std::panic;
 use std::sync::Arc;
 
 async fn run(rt: Arc<QuickJsRuntimeFacade>, id: String) {
@@ -95,6 +98,21 @@ async fn single_context(rt: Arc<QuickJsRuntimeFacade>) -> anyhow::Result<()> {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    panic::set_hook(Box::new(|panic_info| {
+        let backtrace = Backtrace::new();
+        println!(
+            "thread panic occurred: {}\nbacktrace: {:?}",
+            panic_info, backtrace
+        );
+        log::error!(
+            "thread panic occurred: {}\nbacktrace: {:?}",
+            panic_info,
+            backtrace
+        );
+    }));
+
+    simple_logging::log_to_stderr(LevelFilter::Info);
+
     let rt = make_rt();
 
     multi_context(rt).await?;

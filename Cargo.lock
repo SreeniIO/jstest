@@ -238,8 +238,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-recursion",
+ "backtrace",
  "hirofa_utils",
+ "log",
  "quickjs_runtime",
+ "simple-logging",
  "tokio",
 ]
 

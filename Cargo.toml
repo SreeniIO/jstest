@@ -11,3 +11,6 @@ quickjs_runtime = { version = "0.8.1", features = ["tokio_full"] }
 tokio = { version = "1.20.0", features = ["full"] }
 hirofa_utils = "0.5.2"
 async-recursion = "1.0.0"
+backtrace = "0.3.56"
+simple-logging = "2.0.2"
+log = "0.4.17"

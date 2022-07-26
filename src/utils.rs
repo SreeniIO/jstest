@@ -103,6 +103,7 @@ pub async fn get_as_string(
             }
         }
         JsValueFacade::Undefined | JsValueFacade::Null => Ok("".to_owned()),
+        JsValueFacade::JsError { val } => Err(val),
         _ => Err(JsError::new_string(format!(
             "Unexpected value found `{:?}` for {}, expected a string.",
             val, reason
