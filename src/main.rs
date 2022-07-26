@@ -136,12 +136,13 @@ async fn main() -> anyhow::Result<()> {
                     Ok(_) => {}
                     Err(e) => eprintln!("{}", e),
                 }
-            });
+            })
         });
         list.push(handle);
     }
     for handle in list {
-        handle.await?;
+        let h = handle.await?;
+        h.await?;
     }
 
     // single_context(rt).await?;
