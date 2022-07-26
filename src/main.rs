@@ -56,7 +56,7 @@ async fn run(rt: Arc<QuickJsRuntimeFacade>, id: String) {
 #[allow(unused)]
 async fn multi_context(rt: Arc<QuickJsRuntimeFacade>, seq: i32) -> anyhow::Result<()> {
     let mut list = vec![];
-    for i in 0..100000 {
+    for i in 0..10000 {
         let rt = rt.clone();
         let handle = tokio::task::spawn(async move {
             let id = format!("{}-{}", seq, next_id());
@@ -80,7 +80,10 @@ async fn multi_context(rt: Arc<QuickJsRuntimeFacade>, seq: i32) -> anyhow::Resul
             list.clear();
         }
     }
-
+    for handle in list.iter_mut() {
+        handle.await?;
+    }
+    list.clear();
     Ok(())
 }
 
