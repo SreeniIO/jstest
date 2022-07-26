@@ -14,19 +14,23 @@ use std::panic;
 use std::sync::Arc;
 
 async fn run(rt: Arc<QuickJsRuntimeFacade>, id: String) {
+    let id2 = id.clone();
     match rt.js_loop_realm_sync(Some(&id), move |_q_js_rt, q_ctx| {
         let res = q_ctx.eval(Script::new(
             "test.js",
-            r#"
-                        async function main() {
+            &format!(
+                r#"
+                        async function main() {{
                             // uncomment the below lines to see the error
-                            const { abc } = await import('abc');
-                            await abc();
-                            xconsole.log("running js...");
+                            const {{ abc }} = await import('abc');
+                            await abc({:?});
+                            xconsole.log("{} running js...");
                             return 'test';
-                        }
+                        }}
                         main();
             "#,
+                id2, id2
+            ),
         ));
 
         _q_js_rt.run_pending_jobs_if_any();
@@ -37,9 +41,9 @@ async fn run(rt: Arc<QuickJsRuntimeFacade>, id: String) {
         }
     }) {
         Ok(r) => {
-            let fut = get_as_string(rt, r, "return value".to_owned()).await;
+            let fut = get_as_string(rt, r, "return value".to_owned(), id.clone()).await;
             match fut {
-                Ok(val) => println!("result={}", val),
+                Ok(val) => println!("{} result={}", id, val),
                 Err(e) => eprintln!("err: {}", e),
             };
         }
@@ -50,24 +54,33 @@ async fn run(rt: Arc<QuickJsRuntimeFacade>, id: String) {
 }
 
 #[allow(unused)]
-async fn multi_context(rt: Arc<QuickJsRuntimeFacade>) -> anyhow::Result<()> {
+async fn multi_context(rt: Arc<QuickJsRuntimeFacade>, seq: i32) -> anyhow::Result<()> {
+    let mut list = vec![];
     for i in 0..100000 {
-        println!("{}", i);
+        let rt = rt.clone();
+        let handle = tokio::task::spawn(async move {
+            let id = format!("{}-{}", seq, next_id());
+            let id2 = id.clone();
+            println!("{}", id);
+            // create new context for every execution
+            match rt.create_context(&id) {
+                Ok(_) => {}
+                Err(e) => eprintln!("Error calling create_context {}: {}", id, e),
+            };
 
-        let id = next_id();
-        let id2 = id.clone();
-        // create new context for every execution
-        match rt.create_context(&id) {
-            Ok(_) => {}
-            Err(e) => eprintln!("Error calling create_context {}: {}", id, e),
-        };
-
-        run(rt.clone(), id).await;
-        // drop the above created context
-        rt.drop_context(&id2);
-
-        // Segmentation fault: 11 [after 4520]
+            run(rt.clone(), id).await;
+            // drop the above created context
+            rt.drop_context(&id2);
+        });
+        list.push(handle);
+        if i % 20 == 0 {
+            for handle in list.iter_mut() {
+                handle.await?;
+            }
+            list.clear();
+        }
     }
+
     Ok(())
 }
 
@@ -82,7 +95,7 @@ async fn single_context(rt: Arc<QuickJsRuntimeFacade>) -> anyhow::Result<()> {
     };
 
     for i in 0..100000 {
-        println!("{}", i);
+        println!("{}", id);
         let id = id.clone();
         run(rt.clone(), id).await;
 
@@ -114,9 +127,22 @@ async fn main() -> anyhow::Result<()> {
     simple_logging::log_to_stderr(LevelFilter::Info);
 
     let rt = make_rt();
-
-    multi_context(rt).await?;
-    // Segmentation fault: 11 [after 4520]
+    let mut list = vec![];
+    for i in 0..10 {
+        let rt = rt.clone();
+        let handle = tokio::task::spawn_blocking(move || {
+            tokio::task::spawn(async move {
+                match multi_context(rt, i).await {
+                    Ok(_) => {}
+                    Err(e) => eprintln!("{}", e),
+                }
+            });
+        });
+        list.push(handle);
+    }
+    for handle in list {
+        handle.await?;
+    }
 
     // single_context(rt).await?;
     // thread '<unnamed>' panicked at 'could not create func', .../quickjs_runtime-0.8.0/src/esvalue.rs:365:6

@@ -25,17 +25,17 @@ impl ScriptModuleLoader<QuickJsRealmAdapter> for ModuleLoader {
         match absolute_path {
             "xyz" => {
                 r#"
-export async function xyz() {
-    xconsole.log("running module xyz...");
+export async function xyz(id) {
+    xconsole.log(`${id} running module xyz...`);
 }
             "#
             }
             _ => {
                 r#"
 import { xyz } from 'xyz';
-export async function abc() {
-    await xyz();
-    xconsole.log("running module abc...");
+export async function abc(id) {
+    await xyz(id);
+    xconsole.log(`${id} running module abc...`);
 }
             "#
             }

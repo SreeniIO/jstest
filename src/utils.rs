@@ -58,8 +58,9 @@ pub async fn get_as_string(
     rt: Arc<QuickJsRuntimeFacade>,
     val: JsValueFacade,
     reason: String,
+    id: String,
 ) -> anyhow::Result<String, JsError> {
-    println!("get_as_string={}", val.get_value_type());
+    println!("{} get_as_string={}", id, val.get_value_type());
     match val {
         JsValueFacade::String { val } => Ok(val),
         JsValueFacade::JsObject { cached_object } => {
@@ -98,7 +99,7 @@ pub async fn get_as_string(
             let rti = week_rti.upgrade().unwrap();
             let val = cached_promise.js_get_promise_result(&*rti).await?;
             match val {
-                Ok(val) => get_as_string(rt, val, reason).await,
+                Ok(val) => get_as_string(rt, val, reason, id).await,
                 Err(e) => Ok(format!("{:?}", e)),
             }
         }
