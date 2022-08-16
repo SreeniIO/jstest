@@ -8,7 +8,7 @@ use backtrace::Backtrace;
 use hirofa_utils::js_utils::adapters::JsRealmAdapter;
 use hirofa_utils::js_utils::facades::JsRuntimeFacade;
 use hirofa_utils::js_utils::Script;
-use log::LevelFilter;
+use log::{debug, error, LevelFilter};
 use quickjs_runtime::facades::QuickJsRuntimeFacade;
 use std::panic;
 use std::sync::Arc;
@@ -37,14 +37,14 @@ async fn run(rt: Arc<QuickJsRuntimeFacade>, id: String) {
         }
     }) {
         Ok(r) => {
-            let fut = get_as_string(rt, r, "return value".to_owned()).await;
+            let fut = get_as_string(rt, r, "return value".to_owned(), id).await;
             match fut {
-                Ok(val) => println!("result={}", val),
-                Err(e) => eprintln!("err: {}", e),
+                Ok(val) => debug!("result={}", val),
+                Err(e) => error!("err: {}", e),
             };
         }
         Err(e) => {
-            eprintln!("error: {}", e);
+            error!("error: {}", e);
         }
     };
 }
@@ -52,14 +52,14 @@ async fn run(rt: Arc<QuickJsRuntimeFacade>, id: String) {
 #[allow(unused)]
 async fn multi_context(rt: Arc<QuickJsRuntimeFacade>) -> anyhow::Result<()> {
     for i in 0..100000 {
-        println!("{}", i);
+        debug!("index={}", i);
 
         let id = next_id();
         let id2 = id.clone();
         // create new context for every execution
         match rt.create_context(&id) {
             Ok(_) => {}
-            Err(e) => eprintln!("Error calling create_context {}: {}", id, e),
+            Err(e) => error!("Error calling create_context {}: {}", id, e),
         };
 
         run(rt.clone(), id).await;
@@ -78,7 +78,7 @@ async fn single_context(rt: Arc<QuickJsRuntimeFacade>) -> anyhow::Result<()> {
     // create new context for every execution
     match rt.create_context(&id) {
         Ok(_) => {}
-        Err(e) => eprintln!("Error calling create_context {}: {}", id, e),
+        Err(e) => error!("Error calling create_context {}: {}", id, e),
     };
 
     for i in 0..100000 {
@@ -111,7 +111,7 @@ async fn main() -> anyhow::Result<()> {
         );
     }));
 
-    simple_logging::log_to_stderr(LevelFilter::Info);
+    simple_logging::log_to_file("jstest.log", LevelFilter::Trace).unwrap();
 
     let rt = make_rt();
 
@@ -122,7 +122,7 @@ async fn main() -> anyhow::Result<()> {
     // thread '<unnamed>' panicked at 'could not create func', .../quickjs_runtime-0.8.0/src/esvalue.rs:365:6
     // [after 7215]
 
-    println!("done");
+    debug!("done");
 
     Ok(())
 }
